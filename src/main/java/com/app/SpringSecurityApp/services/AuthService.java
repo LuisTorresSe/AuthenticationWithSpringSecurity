@@ -6,6 +6,7 @@ import com.app.SpringSecurityApp.utils.JwtUtils;
 import lombok.RequiredArgsConstructor;
 
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -13,6 +14,10 @@ import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
 import java.util.List;
+
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 @Service
 @RequiredArgsConstructor
@@ -23,6 +28,7 @@ public class AuthService
     private final AuthRepository authRepository;
     private final UsersRepository usersRepository;
     private final PasswordEncoder passwordEncoder;
+
 
     public String register(RegisterRequest registerRequest)
     {
@@ -37,14 +43,20 @@ public class AuthService
 
     public AuthResponse refreshToken(String refreshToken){
         String token = extractTokenOfHeader(refreshToken);
+
+        if(token.isEmpty()){
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
+        }
         String username = jwtUtils.extractUsername(token);
-        if(username == null){
-            return null;
+
+        if(username.isEmpty()){
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
         }
 
-        final UserEntity user = usersRepository.findByUsername(username).orElseThrow();
+        final UserEntity user = usersRepository.findByUsername(username)
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
-        final boolean isTokenValid = jwtUtils.validateToken(refreshToken, user);
+        final boolean isTokenValid = jwtUtils.validateToken(token, user);
 
         if(!isTokenValid){
             throw new ResponseStatusException(HttpStatus.BAD_REQUEST, "Invalid refresh token");
@@ -58,7 +70,7 @@ public class AuthService
         if(authHeader == null || !authHeader.startsWith("Bearer ")){
             throw new IllegalArgumentException("Invalid JWT token");
         }
-        return authHeader.substring(7);
+        return authHeader.substring(7).trim();
     }
 
     public UserEntity createUser(String username, String password)
@@ -93,27 +105,14 @@ public class AuthService
         String accessToken = jwtUtils.generateToken(findUser.getUsername(), parseauthoritiesToString);
         String refreshToken = jwtUtils.generateRefreshToken(findUser.getUsername(), parseauthoritiesToString);
 
-        revokeAllTokens(findUser);
+        jwtUtils.revokeAllTokens(findUser);
 
         saveTokenUser(refreshToken, findUser);
 
         return new AuthResponse(accessToken,refreshToken);
     }
 
-    private void revokeAllTokens(UserEntity user) {
 
-       final List<TokenEntity> tokensUserValid = authRepository.findAllValidToken(user.getId()).orElseThrow();
-
-        if(!tokensUserValid.isEmpty()) {
-            tokensUserValid.forEach(t -> {
-                t.setRevoked(true);
-                t.setExpired(true);
-            });
-
-            authRepository.saveAll(tokensUserValid);
-        }
-
-    }
 
     private void saveTokenUser(String token, UserEntity user) {
         TokenEntity newToken = TokenEntity.builder()

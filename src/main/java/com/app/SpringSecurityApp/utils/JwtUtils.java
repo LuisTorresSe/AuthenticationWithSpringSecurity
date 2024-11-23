@@ -1,13 +1,19 @@
 package com.app.SpringSecurityApp.utils;
 
+import com.app.SpringSecurityApp.persistence.AuthRepository;
+import com.app.SpringSecurityApp.persistence.TokenEntity;
 import com.app.SpringSecurityApp.persistence.UserEntity;
+import com.app.SpringSecurityApp.services.AuthService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 
+import lombok.RequiredArgsConstructor;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.core.authority.SimpleGrantedAuthority;
 import org.springframework.stereotype.Service;
+import org.springframework.web.server.ResponseStatusException;
 
 import javax.crypto.SecretKey;
 import java.util.Date;
@@ -15,7 +21,9 @@ import java.util.List;
 import java.util.stream.Collectors;
 
 @Service
+@RequiredArgsConstructor
 public class JwtUtils {
+    private final AuthRepository authRepository;
 
     @Value("${security_jwt_secret_key}")
     private String secureKey;
@@ -45,6 +53,9 @@ public class JwtUtils {
     }
 
     public String parseAuthorityToString (List<SimpleGrantedAuthority> authorities) {
+        if (authorities == null || authorities.isEmpty()) {
+            return "";
+        }
         return authorities
                 .stream()
                 .map(SimpleGrantedAuthority::getAuthority)
@@ -74,14 +85,58 @@ public class JwtUtils {
 
     public boolean validateToken(String token, UserEntity user) {
         final String username = extractUsername(token);
-        return (username.equals(user.getUsername())) && !isTokenExpired(token);
+
+        final boolean compareUsernameWithUserOfToken = username.equals(user.getUsername());
+
+        validateDatabaseToken(token);
+
+        if(isTokenExpired(token) || !compareUsernameWithUserOfToken) {
+            revokeAllTokens(user);
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid or expired token");
+        }
+
+        return true;
     }
+
+    private void validateDatabaseToken(String token) {
+        final TokenEntity findTokenInDatabase = authRepository.findByToken(token).orElseThrow(
+                () -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Token not found"));
+
+        final boolean tokenExpiredInDatabase = findTokenInDatabase.isExpired();
+        final boolean tokenRevokedInDatabase = findTokenInDatabase.isRevoked();
+
+        if( tokenRevokedInDatabase) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token revoked");
+        }
+
+        if(tokenExpiredInDatabase) {
+            throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Token expired");
+        }
+    }
+
 
     public boolean isTokenExpired(String token) {
+
         final Date expirationDate = Jwts.parser().verifyWith(getSignKey())
                 .build().parseSignedClaims(token).getPayload().getExpiration();
-        return expirationDate.before(new Date());
+
+        return  expirationDate.before(new Date());
     }
 
+
+    public void revokeAllTokens(UserEntity user) {
+
+        final List<TokenEntity> tokensUserValid = authRepository.findAllValidToken(user.getId()).orElseThrow();
+
+        if(!tokensUserValid.isEmpty()) {
+            tokensUserValid.forEach(t -> {
+                t.setRevoked(true);
+                t.setExpired(true);
+            });
+
+            authRepository.saveAll(tokensUserValid);
+        }
+
+    }
 
 }

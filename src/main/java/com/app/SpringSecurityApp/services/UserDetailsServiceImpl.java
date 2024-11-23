@@ -70,7 +70,7 @@ public class UserDetailsServiceImpl implements UserDetailsService {
                 .flatMap(role-> role.getPermissions().stream())
                 .forEach(permission-> authorities.add(new SimpleGrantedAuthority(permission.getPermission())));
 
-        return authorities;
+        return List.copyOf(authorities);
     }
 
 }

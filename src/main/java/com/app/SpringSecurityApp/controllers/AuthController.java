@@ -46,9 +46,16 @@ public class AuthController {
     }
 
     @PostMapping("/refresh_token")
-    public ResponseEntity<AuthResponse> refreshToken(@RequestHeader(HttpHeaders.AUTHORIZATION) final String authHeader)
+    public ResponseEntity<AuthResponse> refreshToken(@Valid @RequestHeader(HttpHeaders.AUTHORIZATION) final String authHeader
+    ,HttpServletResponse response)
     {
-        return new ResponseEntity<>( authService.refreshToken(authHeader), HttpStatus.OK);
+
+        AuthResponse authResponse = authService.refreshToken(authHeader);
+
+        Cookie refreshToken = cookieService.createCookieToken("refreshToken",authResponse.refresh_token());
+
+        response.addCookie(refreshToken);
+        return new ResponseEntity<>( authResponse, HttpStatus.OK);
 
     }
 

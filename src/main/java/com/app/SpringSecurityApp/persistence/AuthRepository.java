@@ -17,5 +17,6 @@ public interface AuthRepository extends JpaRepository<TokenEntity, Long> {
     )
    Optional< List<TokenEntity> > findAllValidToken(@Param("userId") Long userId);
 
+    Optional<TokenEntity> findByToken(String token);
 
 }
