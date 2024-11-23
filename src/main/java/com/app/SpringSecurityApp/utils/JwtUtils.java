@@ -3,7 +3,6 @@ package com.app.SpringSecurityApp.utils;
 import com.app.SpringSecurityApp.persistence.AuthRepository;
 import com.app.SpringSecurityApp.persistence.TokenEntity;
 import com.app.SpringSecurityApp.persistence.UserEntity;
-import com.app.SpringSecurityApp.services.AuthService;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
