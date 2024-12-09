@@ -1,8 +1,8 @@
 package com.app.SpringSecurityApp.utils;
 
-import com.app.SpringSecurityApp.persistence.AuthRepository;
-import com.app.SpringSecurityApp.persistence.TokenEntity;
-import com.app.SpringSecurityApp.persistence.UserEntity;
+import com.app.SpringSecurityApp.persistence.repository.AuthRepository;
+import com.app.SpringSecurityApp.persistence.entity.TokenEntity;
+import com.app.SpringSecurityApp.persistence.entity.UserEntity;
 import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
@@ -85,9 +85,9 @@ public class JwtUtils {
     public boolean validateToken(String token, UserEntity user) {
         final String username = extractUsername(token);
 
-        final boolean compareUsernameWithUserOfToken = username.equals(user.getUsername());
+        final boolean compareUsernameWithUserOfToken = username.equals(user.getEmail());
 
-        validateDatabaseToken(token);
+      //  validateDatabaseToken(token);
 
         if(isTokenExpired(token) || !compareUsernameWithUserOfToken) {
             revokeAllTokens(user);

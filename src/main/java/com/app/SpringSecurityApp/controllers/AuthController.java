@@ -1,9 +1,9 @@
 package com.app.SpringSecurityApp.controllers;
 
 
-import com.app.SpringSecurityApp.persistence.AuthResponse;
-import com.app.SpringSecurityApp.persistence.LoginRequest;
-import com.app.SpringSecurityApp.persistence.RegisterRequest;
+import com.app.SpringSecurityApp.persistence.dto.AuthResponse;
+import com.app.SpringSecurityApp.persistence.dto.LoginRequest;
+import com.app.SpringSecurityApp.persistence.dto.RegisterRequest;
 import com.app.SpringSecurityApp.services.AuthService;
 
 import com.app.SpringSecurityApp.services.CookieService;

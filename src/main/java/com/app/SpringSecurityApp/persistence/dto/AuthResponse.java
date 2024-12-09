@@ -1,4 +1,4 @@
-package com.app.SpringSecurityApp.persistence;
+package com.app.SpringSecurityApp.persistence.dto;
 
 import com.fasterxml.jackson.annotation.JsonProperty;
 

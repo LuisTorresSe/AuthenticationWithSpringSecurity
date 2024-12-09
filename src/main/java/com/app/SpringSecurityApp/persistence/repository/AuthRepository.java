@@ -1,5 +1,6 @@
-package com.app.SpringSecurityApp.persistence;
+package com.app.SpringSecurityApp.persistence.repository;
 
+import com.app.SpringSecurityApp.persistence.entity.TokenEntity;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;

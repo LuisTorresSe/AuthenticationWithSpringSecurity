@@ -1,70 +1,86 @@
 package com.app.SpringSecurityApp.config;
 
-import com.app.SpringSecurityApp.persistence.UserEntity;
-import com.app.SpringSecurityApp.persistence.UsersRepository;
+import com.app.SpringSecurityApp.persistence.entity.UserEntity;
+import com.app.SpringSecurityApp.persistence.repository.UserRepository;
 import com.app.SpringSecurityApp.utils.JwtUtils;
 import jakarta.servlet.FilterChain;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
 import lombok.RequiredArgsConstructor;
+import org.springframework.http.HttpStatus;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
-import org.springframework.security.core.Authentication;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.AuthorityUtils;
-import org.springframework.security.core.context.SecurityContext;
 import org.springframework.security.core.context.SecurityContextHolder;
-
 import org.springframework.stereotype.Component;
 import org.springframework.web.filter.OncePerRequestFilter;
+import org.springframework.web.server.ResponseStatusException;
 
 import java.io.IOException;
 import java.util.Collection;
-
 
 @Component
 @RequiredArgsConstructor
 public class JwtFilter extends OncePerRequestFilter {
 
     private final JwtUtils jwtUtils;
-    private final UsersRepository usersRepository;
+    private final UserRepository userRepository;
 
     @Override
-    protected void doFilterInternal(HttpServletRequest request,   HttpServletResponse response, FilterChain filterChain) throws ServletException, IOException {
+    protected void doFilterInternal(HttpServletRequest request,
+                                    HttpServletResponse response,
+                                    FilterChain filterChain) throws ServletException, IOException {
 
-        if (request.getServletPath().contains("/auth")
-            )
-        {
+        // Omitir rutas de autenticación
+        if (request.getServletPath().contains("/auth")) {
             filterChain.doFilter(request, response);
             return;
         }
 
         final String authorizationHeader = request.getHeader("Authorization");
 
+        // Validar si hay un token en el header
         if (authorizationHeader == null || !authorizationHeader.startsWith("Bearer ")) {
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Acceso denegado: se requiere un token válido.");
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Acceso denegado: se requiere un token válido.");
             return;
         }
 
-        final String jwt = authorizationHeader.substring(7);
-        final String username = jwtUtils.extractUsername(jwt);
+        try {
+            // Extraer y validar el token
+            final String jwt = authorizationHeader.substring(7);
+            final String username = jwtUtils.extractUsername(jwt);
 
-        final UserEntity user = usersRepository.findByUsername(username).orElseThrow();
+            if (username == null) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token inválido: no contiene un usuario.");
+                return;
+            }
 
-        final String stringAuthorities = jwtUtils.extractAuthorities(jwt);
+            // Buscar el usuario en la base de datos
+            final UserEntity user = userRepository.findByEmail(username)
+                    .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Usuario no encontrado"));
 
-        if(!jwtUtils.validateToken(jwt, user)){
-            response.sendError(HttpServletResponse.SC_FORBIDDEN, "Token inválido o expirado.");
+            if (!jwtUtils.validateToken(jwt, user)) {
+                response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Token inválido o expirado.");
+                return;
+            }
+
+            // Extraer los roles/authorities del token
+            final String stringAuthorities = jwtUtils.extractAuthorities(jwt);
+            Collection<? extends GrantedAuthority> authorities = AuthorityUtils
+                    .commaSeparatedStringToAuthorityList(stringAuthorities);
+
+            // Crear la autenticación y asignarla al contexto
+            UsernamePasswordAuthenticationToken auth = new UsernamePasswordAuthenticationToken(
+                    user.getEmail(), null, authorities);
+            SecurityContextHolder.getContext().setAuthentication(auth);
+
+        } catch (Exception ex) {
+            response.sendError(HttpServletResponse.SC_UNAUTHORIZED, "Error al procesar el token: " + ex.getMessage());
             return;
         }
 
-        Collection<? extends GrantedAuthority> authorities = AuthorityUtils
-                .commaSeparatedStringToAuthorityList(stringAuthorities);
-        SecurityContext context = SecurityContextHolder.createEmptyContext();
-
-        Authentication auth = new UsernamePasswordAuthenticationToken(username, null, authorities);
-        context.setAuthentication(auth);
-        SecurityContextHolder.setContext(context);
+        // Continuar con la cadena de filtros
+        filterChain.doFilter(request, response);
     }
-
 }

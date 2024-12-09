@@ -1,7 +1,7 @@
 package com.app.SpringSecurityApp.services;
 
-import com.app.SpringSecurityApp.persistence.UserEntity;
-import com.app.SpringSecurityApp.persistence.UsersRepository;
+import com.app.SpringSecurityApp.persistence.entity.UserEntity;
+import com.app.SpringSecurityApp.persistence.repository.UserRepository;
 
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.authentication.BadCredentialsException;
@@ -21,19 +21,19 @@ import java.util.List;
 @Service
 @RequiredArgsConstructor
 public class UserDetailsServiceImpl implements UserDetailsService {
-    private final UsersRepository usersRepository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
     @Override
-    public UserDetails loadUserByUsername(String username) throws UsernameNotFoundException {
-        UserEntity user = usersRepository.findByUsername(username).orElseThrow(
-                () -> new UsernameNotFoundException(username)
+    public UserDetails loadUserByUsername(String email) throws UsernameNotFoundException {
+        UserEntity user = userRepository.findByEmail(email).orElseThrow(
+                () -> new UsernameNotFoundException(email)
         );
 
         List<SimpleGrantedAuthority> authorities = getAuthorities(user);
 
         return new User(
-                user.getUsername(),
+                user.getEmail(),
                 user.getPassword(),
                 user.getIsEnabled(),
                 user.getIsAccountNonExpired(),
@@ -44,23 +44,18 @@ public class UserDetailsServiceImpl implements UserDetailsService {
     }
 
 
-    public Authentication authenticate(String username, String password) {
-        UserDetails user = loadUserByUsername(username);
+    public Authentication authenticate(String email, String password) {
+        UserDetails user = loadUserByUsername(email);
 
         if(user == null){
-            throw new UsernameNotFoundException(username);
+            throw new UsernameNotFoundException(email);
         }
-
-
-        // aca se deberia decodificar la contraseña que esta
-        // en la base de datos
 
         if(!passwordEncoder.matches(password, user.getPassword())){
             throw new BadCredentialsException("Wrong password");
         }
 
-        return new UsernamePasswordAuthenticationToken(username, password, user.getAuthorities());
-
+        return new UsernamePasswordAuthenticationToken(email, password, user.getAuthorities());
     }
 
     public List<SimpleGrantedAuthority> getAuthorities(UserEntity user) {

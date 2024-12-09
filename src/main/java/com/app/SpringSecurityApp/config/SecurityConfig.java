@@ -1,9 +1,9 @@
 package com.app.SpringSecurityApp.config;
 
 
-import com.app.SpringSecurityApp.persistence.AuthRepository;
-import com.app.SpringSecurityApp.persistence.TokenEntity;
-import org.springframework.beans.factory.annotation.Autowired;
+import com.app.SpringSecurityApp.persistence.repository.AuthRepository;
+import com.app.SpringSecurityApp.persistence.entity.TokenEntity;
+import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 
@@ -30,24 +30,25 @@ import org.springframework.web.server.ResponseStatusException;
 @Configuration
 @EnableWebSecurity
 @EnableMethodSecurity
-
+@RequiredArgsConstructor
 public class SecurityConfig {
 
-    @Autowired
-    private  JwtFilter jwtFilter;
-    @Autowired
-    private AuthRepository authRepository;
+    private  final JwtFilter jwtFilter;
+    private final AuthRepository authRepository;
 
     @Bean
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         return http
                 .csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session-> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(request-> request.requestMatchers("auth/login",
-                                "auth/register","auth/refresh_token").permitAll()
-
+                .authorizeHttpRequests(request->
+                                request.requestMatchers("auth/login", "auth/register","auth/refresh_token").permitAll()
+                                        .requestMatchers("user/profile").authenticated()
+                                        .anyRequest().denyAll()
                         )
+
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)
+
                 .logout(logout-> logout.logoutUrl("/auth/logout")
                         .addLogoutHandler((request, response, authentication) -> {
                             final var authHeader = request.getHeader("Authorization");

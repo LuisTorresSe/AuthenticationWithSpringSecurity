@@ -1,6 +1,10 @@
 package com.app.SpringSecurityApp;
 
-import com.app.SpringSecurityApp.persistence.*;
+import com.app.SpringSecurityApp.persistence.entity.PermissionEntity;
+import com.app.SpringSecurityApp.persistence.entity.RoleEntity;
+import com.app.SpringSecurityApp.persistence.entity.RoleEnum;
+import com.app.SpringSecurityApp.persistence.entity.UserEntity;
+import com.app.SpringSecurityApp.persistence.repository.UserRepository;
 import org.springframework.boot.CommandLineRunner;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
@@ -17,7 +21,7 @@ public class SpringSecurityAppApplication {
 	}
 
 @Bean
-	CommandLineRunner init(UsersRepository usersRepository) {
+	CommandLineRunner init(UserRepository userRepository) {
 		return args -> {
 			PermissionEntity createPermision = PermissionEntity
 					.builder().permission("create").build();
@@ -31,7 +35,7 @@ public class SpringSecurityAppApplication {
 					.permissions(Set.of(readPermission)).build();
 
 			UserEntity davidAdmin = UserEntity.builder()
-					.username("davidAdmin")
+					.email("davidAdmin")
 					.password("password")
 					.isAccountNonExpired(true)
 					.isAccountNonLocked(true)
@@ -40,7 +44,7 @@ public class SpringSecurityAppApplication {
 					.roles(Set.of(roleAdmin))
 					.build();
 			UserEntity claudiaUser = UserEntity.builder()
-					.username("claudiaUser")
+					.email("claudiaUser")
 					.password("password")
 					.isAccountNonExpired(true)
 					.isAccountNonLocked(true)
@@ -49,7 +53,7 @@ public class SpringSecurityAppApplication {
 					.roles(Set.of(roleUser))
 					.build();
 
-			usersRepository.saveAll(List.of(davidAdmin, claudiaUser));
+			userRepository.saveAll(List.of(davidAdmin, claudiaUser));
 		};
 	}
 }

@@ -1,6 +1,12 @@
 package com.app.SpringSecurityApp.services;
 
-import com.app.SpringSecurityApp.persistence.*;
+import com.app.SpringSecurityApp.persistence.dto.AuthResponse;
+import com.app.SpringSecurityApp.persistence.dto.LoginRequest;
+import com.app.SpringSecurityApp.persistence.dto.RegisterRequest;
+import com.app.SpringSecurityApp.persistence.entity.TokenEntity;
+import com.app.SpringSecurityApp.persistence.entity.UserEntity;
+import com.app.SpringSecurityApp.persistence.repository.AuthRepository;
+import com.app.SpringSecurityApp.persistence.repository.UserRepository;
 import com.app.SpringSecurityApp.utils.JwtUtils;
 
 import lombok.RequiredArgsConstructor;
@@ -13,6 +19,7 @@ import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.stereotype.Service;
 import org.springframework.web.server.ResponseStatusException;
 
+import java.util.Date;
 
 
 @Service
@@ -22,17 +29,14 @@ public class AuthService
     private final UserDetailsServiceImpl userDetailsServiceImpl;
     private final JwtUtils jwtUtils;
     private final AuthRepository authRepository;
-    private final UsersRepository usersRepository;
+    private final UserRepository userRepository;
     private final PasswordEncoder passwordEncoder;
 
 
     public String register(RegisterRequest registerRequest)
     {
-        String username = registerRequest.username();
-        String password = registerRequest.password();
-
-        UserEntity user = createUser(username, password);
-        usersRepository.save(user);
+        UserEntity user = createUser(registerRequest);
+        userRepository.save(user);
 
         return "User created";
     }
@@ -49,7 +53,7 @@ public class AuthService
             throw new ResponseStatusException(HttpStatus.UNAUTHORIZED, "Invalid refresh token");
         }
 
-        final UserEntity user = usersRepository.findByUsername(username)
+        final UserEntity user = userRepository.findByEmail(username)
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "User not found"));
 
         final boolean isTokenValid = jwtUtils.validateToken(token, user);
@@ -69,11 +73,25 @@ public class AuthService
         return authHeader.substring(7).trim();
     }
 
-    public UserEntity createUser(String username, String password)
+    public UserEntity createUser(RegisterRequest registerRequest)
     {
+        String email = registerRequest.email();
+        String password = registerRequest.password();
+        String fullName = registerRequest.fullName();
+        Date dateOfBirth = registerRequest.dateOfBirth();
+        String ci = registerRequest.ci();
+        String nationality = registerRequest.nationality();
+        String phone = registerRequest.phone();
+
+
         return UserEntity.builder()
-                .username(username)
+                .email(email)
                 .password(passwordEncoder.encode(password))
+                .fullName(fullName)
+                .dateOfBirth(dateOfBirth)
+                .nationality(nationality)
+                .ci(ci)
+                .phone(phone)
                 .isAccountNonExpired(true)
                 .isAccountNonLocked(true)
                 .isCredentialsNonExpired(true)
@@ -83,14 +101,13 @@ public class AuthService
 
 
     public AuthResponse login(LoginRequest loginRequest){
-        String username = loginRequest.username();
+        String email = loginRequest.email();
         String password = loginRequest.password();
 
-
-        Authentication authentication = userDetailsServiceImpl.authenticate(username, password);
+        Authentication authentication = userDetailsServiceImpl.authenticate(email, password);
         SecurityContextHolder.getContext().setAuthentication(authentication);
 
-        UserEntity findUser = usersRepository.findByUsername(authentication.getPrincipal().toString()).orElseThrow();
+        UserEntity findUser = userRepository.findByEmail(authentication.getPrincipal().toString()).orElseThrow();
 
         return getAuthResponse(findUser);
     }
@@ -98,8 +115,8 @@ public class AuthService
     private AuthResponse getAuthResponse(UserEntity findUser) {
         String parseauthoritiesToString = jwtUtils.parseAuthorityToString(userDetailsServiceImpl.getAuthorities(findUser));
 
-        String accessToken = jwtUtils.generateToken(findUser.getUsername(), parseauthoritiesToString);
-        String refreshToken = jwtUtils.generateRefreshToken(findUser.getUsername(), parseauthoritiesToString);
+        String accessToken = jwtUtils.generateToken(findUser.getEmail(), parseauthoritiesToString);
+        String refreshToken = jwtUtils.generateRefreshToken(findUser.getEmail(), parseauthoritiesToString);
 
         jwtUtils.revokeAllTokens(findUser);
 
